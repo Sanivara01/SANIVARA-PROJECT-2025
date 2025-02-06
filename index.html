@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Registrasi & Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      /* Latar belakang dengan gradient cerah */
+      background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      color: #333;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 2em;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      max-width: 400px;
+      width: 90%;
+      margin: auto;
+      margin-top: 3em;
+    }
+    .container h2 {
+      text-align: center;
+      margin-bottom: 1em;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+    }
+    label {
+      margin-bottom: 0.3em;
+      font-weight: bold;
+    }
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      padding: 0.8em;
+      margin-bottom: 1em;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      padding: 0.8em;
+      border: none;
+      border-radius: 4px;
+      background: #1e90ff;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background: #187bcd;
+    }
+    .toggle,
+    .forgot-password {
+      text-align: center;
+      margin-top: 1em;
+      cursor: pointer;
+      color: #1e90ff;
+      text-decoration: underline;
+    }
+    .message {
+      text-align: center;
+      margin-top: 1em;
+      font-size: 0.9em;
+    }
+    footer {
+      text-align: center;
+      margin-top: auto;
+      padding: 1em;
+      background: rgba(255, 255, 255, 0.8);
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2 id="form-title">Login</h2>
+    <form id="auth-form">
+      <!-- Field Nama Lengkap hanya muncul di mode Registrasi -->
+      <div id="fullname-field" style="display: none;">
+        <label for="fullname">Nama Lengkap:</label>
+        <input type="text" id="fullname" placeholder="Masukkan nama lengkap">
+      </div>
+      <!-- Field Username hanya muncul di mode Registrasi -->
+      <div id="username-field" style="display: none;">
+        <label for="username">Username:</label>
+        <input type="text" id="username" placeholder="Masukkan username">
+      </div>
+      <!-- Field Email digunakan untuk login maupun registrasi -->
+      <label for="email">Email atau Username:</label>
+      <input type="text" id="email" placeholder="Masukkan email atau username" required>
+      
+      <label for="password">Password:</label>
+      <input type="password" id="password" placeholder="Masukkan password" required>
+      
+      <button type="submit" id="submit-btn">Login</button>
+    </form>
+    <div class="toggle" id="toggle-form">Belum punya akun? Daftar sekarang</div>
+    <!-- Tautan lupa password hanya muncul di mode login -->
+    <div class="forgot-password" id="forgot-password" style="display: block;">Lupa Password?</div>
+    <div class="message" id="message"></div>
+  </div>
+  
+  <footer>
+    By: SANIVARA ©2025
+  </footer>
+  
+  <!-- Gunakan modul ES untuk Firebase -->
+  <script type="module">
+    // Import modul-modul yang diperlukan dari Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js";
+    import { 
+      getAuth, 
+      createUserWithEmailAndPassword, 
+      signInWithEmailAndPassword, 
+      sendPasswordResetEmail, 
+      updateProfile 
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+    import { 
+      getDatabase, 
+      ref, 
+      set, 
+      get as dbGet 
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+    // Konfigurasi Firebase Anda
+    const firebaseConfig = {
+      apiKey: "AIzaSyDA1QCMJRWjOlFGUAMRWUiFG_xBJeYySRE",
+      authDomain: "sanuvara-web-2025.firebaseapp.com",
+      projectId: "sanuvara-web-2025",
+      storageBucket: "sanuvara-web-2025.firebasestorage.app",
+      messagingSenderId: "252794209152",
+      appId: "1:252794209152:web:918ee11113d8aa9410b765",
+      measurementId: "G-C2Q36KTXGH"
+    };
+
+    // Inisialisasi Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const auth = getAuth(app);
+    const database = getDatabase(app);
+
+    // URL tujuan redirect setelah berhasil login/registrasi
+    const redirectURL = "https://sites.google.com/view/sanivara/heloo-im-sanivara/home";
+
+    // Mode: true untuk login, false untuk registrasi
+    let isLogin = true;
+
+    // Ambil elemen DOM
+    const formTitle = document.getElementById('form-title');
+    const authForm = document.getElementById('auth-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const toggleForm = document.getElementById('toggle-form');
+    const forgotPasswordLink = document.getElementById('forgot-password');
+    const messageDiv = document.getElementById('message');
+    const usernameFieldDiv = document.getElementById('username-field');
+    const fullnameFieldDiv = document.getElementById('fullname-field');
+
+    // Fungsi untuk berganti antara mode Login dan Registrasi
+    toggleForm.addEventListener('click', () => {
+      isLogin = !isLogin;
+      if (isLogin) {
+        formTitle.textContent = 'Login';
+        submitBtn.textContent = 'Login';
+        toggleForm.textContent = 'Belum punya akun? Daftar sekarang';
+        forgotPasswordLink.style.display = 'block';
+        usernameFieldDiv.style.display = 'none';
+        fullnameFieldDiv.style.display = 'none';
+      } else {
+        formTitle.textContent = 'Registrasi';
+        submitBtn.textContent = 'Daftar';
+        toggleForm.textContent = 'Sudah punya akun? Login';
+        forgotPasswordLink.style.display = 'none';
+        usernameFieldDiv.style.display = 'block';
+        fullnameFieldDiv.style.display = 'block';
+      }
+      messageDiv.textContent = '';
+      authForm.reset();
+    });
+
+    // Fungsi untuk mendapatkan email jika input adalah username
+    function getEmailFromUsername(username) {
+      const dbRef = ref(database, 'usernames/' + username);
+      return dbGet(dbRef).then((snapshot) => {
+        if (snapshot.exists()) {
+          return snapshot.val();
+        } else {
+          throw new Error("Username tidak ditemukan.");
+        }
+      });
+    }
+
+    // Handle form submit
+    authForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const inputIdentifier = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      
+      if (isLogin) {
+        // Login: cek apakah input mengandung '@'
+        if (inputIdentifier.indexOf('@') === -1) {
+          // Diasumsikan sebagai username
+          getEmailFromUsername(inputIdentifier)
+            .then(email => signInWithEmailAndPassword(auth, email, password))
+            .then(userCredential => {
+              messageDiv.style.color = '#008000';
+              messageDiv.textContent = 'Login berhasil!';
+              // Redirect ke halaman tujuan
+              window.location.href = redirectURL;
+            })
+            .catch(error => {
+              messageDiv.style.color = '#ff0000';
+              messageDiv.textContent = error.message;
+            });
+        } else {
+          // Input adalah email
+          signInWithEmailAndPassword(auth, inputIdentifier, password)
+            .then(userCredential => {
+              messageDiv.style.color = '#008000';
+              messageDiv.textContent = 'Login berhasil!';
+              // Redirect ke halaman tujuan
+              window.location.href = redirectURL;
+            })
+            .catch(error => {
+              messageDiv.style.color = '#ff0000';
+              messageDiv.textContent = error.message;
+            });
+        }
+      } else {
+        // Registrasi
+        const username = document.getElementById('username').value.trim();
+        const fullName = document.getElementById('fullname').value.trim();
+        const email = inputIdentifier; // di mode registrasi, input harus berupa email
+        if (!fullName) {
+          messageDiv.style.color = '#ff0000';
+          messageDiv.textContent = 'Nama lengkap wajib diisi.';
+          return;
+        }
+        if (!username) {
+          messageDiv.style.color = '#ff0000';
+          messageDiv.textContent = 'Username wajib diisi.';
+          return;
+        }
+        createUserWithEmailAndPassword(auth, email, password)
+          .then((userCredential) => {
+            // Update profile dengan username
+            return updateProfile(userCredential.user, { displayName: username })
+              .then(() => set(ref(database, 'usernames/' + username), email))
+              .then(() => set(ref(database, 'users/' + userCredential.user.uid), {
+                username: username,
+                fullname: fullName,
+                email: email
+              }))
+              .then(() => userCredential); // lanjutkan chain dengan userCredential
+          })
+          .then(() => {
+            messageDiv.style.color = '#008000';
+            messageDiv.textContent = 'Registrasi berhasil!';
+            // Redirect ke halaman tujuan
+            window.location.href = redirectURL;
+          })
+          .catch(error => {
+            messageDiv.style.color = '#ff0000';
+            messageDiv.textContent = error.message;
+          });
+      }
+    });
+
+    // Fungsi lupa password
+    forgotPasswordLink.addEventListener('click', () => {
+      let identifier = prompt("Masukkan email atau username Anda untuk reset password:");
+      if (!identifier) return;
+      
+      // Jika identifier berupa username, ambil email terkait
+      let emailPromise;
+      if (identifier.indexOf('@') === -1) {
+        emailPromise = getEmailFromUsername(identifier);
+      } else {
+        emailPromise = Promise.resolve(identifier);
+      }
+      
+      emailPromise.then(email => sendPasswordResetEmail(auth, email))
+      .then(() => {
+        alert("Email reset password telah dikirim!");
+      })
+      .catch(error => {
+        alert("Error: " + error.message);
+      });
+    });
+  </script>
+</body>
+</html>
